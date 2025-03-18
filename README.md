@@ -25,8 +25,8 @@
 
 1. Клонируйте репозиторий:
 ```bash
-git clone https://github.com/yourusername/subtitles_project_v2.git
-cd subtitles_project_v2
+git clone https://github.com/yourusername/subtitles_project.git
+cd subtitles_project
 ```
 
 2. Установите зависимости:
