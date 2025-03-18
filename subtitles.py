@@ -21,9 +21,8 @@ import logging
 import time
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-# Изменение импорта для совместимости
-import moviepy
-from moviepy import VideoFileClip
+# Исправление импорта moviepy
+import subprocess
 from faster_whisper import WhisperModel
 from tqdm import tqdm
 import torch
@@ -199,8 +198,7 @@ class SubtitlesGenerator:
         """
         if torch.cuda.is_available():
             return "cuda", "float16"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            return "mps", "float16"
+        # MPS не поддерживается faster-whisper, используем CPU
         return "cpu", "int8"
 
     def extract_audio(self, video_path, max_duration=None):
@@ -218,22 +216,31 @@ class SubtitlesGenerator:
         audio_path = os.path.join(self.temp_dir, "audio_extract.wav")
         
         try:
-            with VideoFileClip(video_path) as video:
-                duration = video.duration if max_duration is None else min(video.duration, max_duration)
-                logger.info(f"Длительность обработки: {duration:.2f} сек")
+            # Извлечение аудио с помощью ffmpeg
+            subprocess.run([
+                "ffmpeg",
+                "-i", video_path,
+                "-vn",  # Без видео
+                "-ar", "16000",  # Частота дискретизации
+                "-ac", "1",  # Моно
+                "-threads", str(max(1, multiprocessing.cpu_count() - 1)),  # Оптимальное количество потоков
+                audio_path
+            ], check=True)
+            
+            # Определение длительности аудио
+            duration = subprocess.run([
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1",
+                audio_path
+            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode().strip()
+            duration = float(duration)
+            
+            if max_duration is not None:
+                duration = min(duration, max_duration)
                 
-                video = video.subclip(0, duration)
-                video.audio.write_audiofile(
-                    audio_path,
-                    codec="pcm_s16le",
-                    ffmpeg_params=[
-                        "-ac", "1",  # Моно
-                        "-ar", "16000",  # Частота дискретизации
-                        "-threads", str(max(1, multiprocessing.cpu_count() - 1)),  # Оптимальное количество потоков
-                    ],
-                    verbose=False,
-                    logger=None
-                )
+            logger.info(f"Длительность обработки: {duration:.2f} сек")
                 
             logger.info(f"Аудио сохранено в: {audio_path}")
             return audio_path, duration
