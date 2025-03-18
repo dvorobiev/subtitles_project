@@ -3,13 +3,18 @@
 Пример программного использования генератора субтитров
 """
 
-from subtitles import SubtitlesGenerator
+from subtitles import SubtitlesGenerator, get_version_string, get_version_info
 import logging
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 
 def main():
+    # Вывод информации о версии
+    print(f"Subtitles Generator версия {get_version_string()}")
+    version_info = get_version_info()
+    print(f"Дата сборки: {version_info['build_date']}")
+    
     # Создание генератора субтитров с моделью medium для более быстрой работы
     generator = SubtitlesGenerator(model_name="medium")
     

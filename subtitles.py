@@ -3,6 +3,16 @@
 Subtitles Generator - Автоматический генератор субтитров для видео с поддержкой перевода
 """
 
+# Информация о версии
+__version__ = "1.0.0"
+VERSION_INFO = {
+    "major": 1,
+    "minor": 0,
+    "patch": 0,
+    "release": "stable",
+    "build_date": "2025-03-18"
+}
+
 import argparse
 import os
 import datetime
@@ -158,10 +168,13 @@ class SubtitlesGenerator:
             device: Устройство для вычислений (cuda, mps, cpu)
             compute_type: Тип вычислений (float16, int8)
         """
+        self.version = __version__
+        
         # Определение оптимального устройства, если не указано
         if device is None or compute_type is None:
             device, compute_type = self.get_optimal_device()
             
+        logger.info(f"Subtitles Generator v{self.version}")
         logger.info(f"Используется устройство: {device}, тип вычислений: {compute_type}")
         
         # Загрузка модели
@@ -371,10 +384,28 @@ class SubtitlesGenerator:
             logger.warning(f"Не удалось очистить временные файлы: {e}")
 
 
+def get_version_info():
+    """
+    Возвращает информацию о версии программы.
+    
+    Returns:
+        dict: Словарь с информацией о версии
+    """
+    return VERSION_INFO
+
+def get_version_string():
+    """
+    Возвращает строку с версией программы.
+    
+    Returns:
+        str: Строка с версией в формате "X.Y.Z (release)"
+    """
+    return f"{__version__} ({VERSION_INFO['release']})"
+
 def main():
     """Основная функция программы."""
     parser = argparse.ArgumentParser(
-        description="Генератор субтитров из видео с поддержкой перевода",
+        description=f"Генератор субтитров из видео с поддержкой перевода v{__version__}",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("input", help="Путь к видеофайлу")
@@ -391,7 +422,15 @@ def main():
                       help="Экспортировать транскрипцию в JSON формате")
     parser.add_argument("--debug", action="store_true",
                       help="Включить отладочные сообщения")
+    parser.add_argument("--version", action="store_true",
+                      help="Показать версию программы и выйти")
     args = parser.parse_args()
+
+    # Вывод версии, если запрошено
+    if args.version:
+        print(f"Subtitles Generator версия {get_version_string()}")
+        print(f"Дата сборки: {VERSION_INFO['build_date']}")
+        return 0
 
     # Настройка уровня логирования
     if args.debug:
