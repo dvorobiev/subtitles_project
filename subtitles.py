@@ -339,11 +339,11 @@ class SubtitlesGenerator:
             output_files["ru"] = output_srt_ru
             logger.info(f"Русские субтитры сохранены в: {output_srt_ru}")
             
-            # Перевод на другие языки
+            # Перевод на другие языки на основе уже транскрибированных сегментов
             for lang in languages:
                 if lang != "ru":
                     output_srt_lang = os.path.join(output_dir, f"{base_name}_subs_{lang}.srt")
-                    self.process_audio(audio_path, duration, output_srt_lang, task="translate", language=lang)
+                    self.translate_subtitles(segments_ru, output_srt_lang, language=lang)
                     output_files[lang] = output_srt_lang
                     logger.info(f"Перевод субтитров на {lang} сохранен в: {output_srt_lang}")
             
@@ -362,6 +362,24 @@ class SubtitlesGenerator:
         finally:
             # Очистка временных файлов
             self.cleanup()
+
+    def translate_subtitles(self, segments, output_path, language):
+        """
+        Переводит уже транскрибированные субтитры на указанный язык.
+        
+        Args:
+            segments: Список сегментов
+            output_path: Путь для сохранения переведенных субтитров
+            language: Целевой язык перевода
+        """
+        translated_segments = []
+        for segment in segments:
+            # Здесь должна быть логика перевода текста
+            translated_text = self.model.translate(segment.text, target_lang=language)
+            translated_segments.append(srt.Subtitle(index=segment.index, start=segment.start, end=segment.end, content=translated_text))
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(srt.compose(translated_segments))
 
     def export_to_json(self, segments, output_path):
         """
