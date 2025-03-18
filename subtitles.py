@@ -21,7 +21,9 @@ import logging
 import time
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from moviepy.editor import VideoFileClip
+# Изменение импорта для совместимости
+import moviepy
+from moviepy import VideoFileClip
 from faster_whisper import WhisperModel
 from tqdm import tqdm
 import torch
@@ -408,7 +410,7 @@ def main():
         description=f"Генератор субтитров из видео с поддержкой перевода v{__version__}",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("input", help="Путь к видеофайлу")
+    parser.add_argument("input", help="Путь к видеофайлу", nargs="?")
     parser.add_argument("--model", default="large-v3",
                       choices=["tiny", "base", "small", "medium", "large-v3"],
                       help="Модель для транскрипции")
@@ -422,14 +424,14 @@ def main():
                       help="Экспортировать транскрипцию в JSON формате")
     parser.add_argument("--debug", action="store_true",
                       help="Включить отладочные сообщения")
-    parser.add_argument("--version", action="store_true",
+    parser.add_argument("--version", action="version", 
+                      version=f"Subtitles Generator версия {get_version_string()}\nДата сборки: {VERSION_INFO['build_date']}",
                       help="Показать версию программы и выйти")
     args = parser.parse_args()
 
-    # Вывод версии, если запрошено
-    if args.version:
-        print(f"Subtitles Generator версия {get_version_string()}")
-        print(f"Дата сборки: {VERSION_INFO['build_date']}")
+    # Проверка наличия обязательного аргумента input
+    if args.input is None:
+        parser.print_help()
         return 0
 
     # Настройка уровня логирования
