@@ -213,7 +213,8 @@ class SubtitlesGenerator:
             Кортеж (путь к аудиофайлу, длительность)
         """
         logger.info("Начало извлечения аудио...")
-        audio_path = os.path.join(self.temp_dir, "audio_extract.wav")
+        # Сохраняем аудио в текущей директории
+        audio_path = os.path.join(os.getcwd(), "audio_extract.wav")
         
         try:
             # Извлечение аудио с помощью ffmpeg
