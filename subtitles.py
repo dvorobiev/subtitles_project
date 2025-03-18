@@ -4,11 +4,11 @@ Subtitles Generator - Автоматический генератор субти
 """
 
 # Информация о версии
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 VERSION_INFO = {
     "major": 1,
     "minor": 0,
-    "patch": 1,
+    "patch": 2,
     "release": "stable",
     "build_date": "2025-03-18"
 }
