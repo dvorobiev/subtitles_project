@@ -4,11 +4,11 @@ Subtitles Generator - Автоматический генератор субти
 """
 
 # Информация о версии
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 VERSION_INFO = {
     "major": 1,
     "minor": 0,
-    "patch": 2,
+    "patch": 3,
     "release": "stable",
     "build_date": "2025-03-18"
 }
@@ -339,11 +339,11 @@ class SubtitlesGenerator:
             output_files["ru"] = output_srt_ru
             logger.info(f"Русские субтитры сохранены в: {output_srt_ru}")
             
-            # Перевод на другие языки на основе уже транскрибированных сегментов
+            # Перевод на другие языки
             for lang in languages:
                 if lang != "ru":
                     output_srt_lang = os.path.join(output_dir, f"{base_name}_subs_{lang}.srt")
-                    self.translate_subtitles(segments_ru, output_srt_lang, language=lang)
+                    self.process_audio(audio_path, duration, output_srt_lang, task="translate", language=lang)
                     output_files[lang] = output_srt_lang
                     logger.info(f"Перевод субтитров на {lang} сохранен в: {output_srt_lang}")
             
