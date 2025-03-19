@@ -4,13 +4,13 @@ Subtitles Generator - Автоматический генератор субти
 """
 
 # Информация о версии
-__version__ = "1.0.3"
+__version__ = "1.1.0"
 VERSION_INFO = {
     "major": 1,
-    "minor": 0,
-    "patch": 3,
+    "minor": 1,
+    "patch": 0,
     "release": "stable",
-    "build_date": "2025-03-18"
+    "build_date": "2025-03-19"
 }
 
 import argparse
@@ -111,6 +111,10 @@ class SubtitlesWriter:
             segment: Сегмент с текстом и временными метками
         """
         try:
+            # Проверяем, есть ли текст в сегменте
+            if not segment.text.strip():
+                return
+                
             parts = self.split_text(segment.text.strip())
             segment_duration = segment.end - segment.start
             
@@ -295,74 +299,6 @@ class SubtitlesGenerator:
             logger.error(f"Ошибка при обработке аудио: {e}")
             raise
 
-    def generate_subtitles(self, video_path, output_dir=None, max_duration=None, 
-                          languages=None, export_json=False):
-        """
-        Генерирует субтитры для видеофайла.
-        
-        Args:
-            video_path: Путь к видеофайлу
-            output_dir: Директория для сохранения результатов
-            max_duration: Максимальная длительность обработки в секундах
-            languages: Список языков для перевода (по умолчанию только русский и английский)
-            export_json: Экспортировать ли результаты в JSON формате
-            
-        Returns:
-            Словарь с путями к созданным файлам
-        """
-        try:
-            # Проверка входного файла
-            if not os.path.exists(video_path):
-                raise FileNotFoundError(f"Видеофайл не найден: {video_path}")
-                
-            # Определение выходной директории
-            if output_dir is None:
-                output_dir = os.path.dirname(os.path.abspath(video_path))
-            os.makedirs(output_dir, exist_ok=True)
-            
-            # Определение языков
-            if languages is None:
-                languages = ["ru", "en"]
-            elif isinstance(languages, str):
-                languages = [languages]
-                
-            logger.info(f"Начало обработки файла: {video_path}")
-            audio_path, duration = self.extract_audio(video_path, max_duration)
-            
-            # Формирование путей для выходных файлов
-            base_name = os.path.splitext(os.path.basename(video_path))[0]
-            output_files = {}
-            
-            # Транскрипция на исходном языке (русский)
-            output_srt_ru = os.path.join(output_dir, f"{base_name}_subs.srt")
-            segments_ru = self.process_audio(audio_path, duration, output_srt_ru, task="transcribe", language="ru")
-            output_files["ru"] = output_srt_ru
-            logger.info(f"Русские субтитры сохранены в: {output_srt_ru}")
-            
-            # Перевод на другие языки
-            for lang in languages:
-                if lang != "ru":
-                    output_srt_lang = os.path.join(output_dir, f"{base_name}_subs_{lang}.srt")
-                    self.process_audio(audio_path, duration, output_srt_lang, task="translate", language=lang)
-                    output_files[lang] = output_srt_lang
-                    logger.info(f"Перевод субтитров на {lang} сохранен в: {output_srt_lang}")
-            
-            # Экспорт в JSON, если требуется
-            if export_json:
-                json_output = os.path.join(output_dir, f"{base_name}_transcription.json")
-                self.export_to_json(segments_ru, json_output)
-                output_files["json"] = json_output
-                logger.info(f"Транскрипция экспортирована в JSON: {json_output}")
-                
-            return output_files
-            
-        except Exception as e:
-            logger.error(f"Ошибка при генерации субтитров: {e}")
-            raise
-        finally:
-            # Очистка временных файлов
-            self.cleanup()
-
     def translate_subtitles(self, segments, output_path, language):
         """
         Переводит уже транскрибированные субтитры на указанный язык.
@@ -401,6 +337,98 @@ class SubtitlesGenerator:
             
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def generate_subtitles(self, video_path, output_dir=None, max_duration=None, 
+                          languages=None, export_json=False):
+        """
+        Генерирует субтитры из видеофайла.
+        
+        Args:
+            video_path: Путь к видеофайлу
+            output_dir: Директория для сохранения субтитров
+            max_duration: Максимальная длительность для обработки
+            languages: Список языков для генерации субтитров
+            export_json: Экспортировать ли в JSON
+        """
+        try:
+            start_time = time.time()
+            
+            # Определение выходной директории
+            if output_dir is None:
+                output_dir = os.path.dirname(video_path)
+            
+            # Извлечение аудио
+            audio_path, duration = self.extract_audio(video_path, max_duration)
+            
+            # Генерация субтитров для основного языка
+            segments, info = self.model.transcribe(
+                audio_path,
+                language="ru",
+                task="transcribe",
+                beam_size=5,
+                vad_filter=True,
+                word_timestamps=True
+            )
+            
+            # Сохранение субтитров для основного языка
+            base_name = os.path.splitext(os.path.basename(video_path))[0]
+            main_lang = "ru"
+            main_srt_path = os.path.join(output_dir, f"{base_name}_subs.srt")
+            
+            with SubtitlesWriter(main_srt_path) as writer:
+                for segment in segments:
+                    writer.add_segment(segment)
+            
+            # Генерация субтитров для других языков
+            if languages:
+                for lang in languages:
+                    if lang == main_lang:
+                        continue
+                    
+                    if lang == 'en':
+                        # Используем перевод для английского
+                        en_srt_path = os.path.join(output_dir, f"{base_name}_subs_en.srt")
+                        translated_segments = self.translate_subtitles(segments, en_srt_path, lang)
+                        with SubtitlesWriter(en_srt_path) as writer:
+                            for segment in translated_segments:
+                                writer.add_segment(segment)
+                    else:
+                        # Для других языков используем транскрипцию
+                        lang_srt_path = os.path.join(output_dir, f"{base_name}_subs_{lang}.srt")
+                        lang_segments, _ = self.model.transcribe(
+                            audio_path,
+                            language=lang,
+                            task="transcribe",
+                            beam_size=5,
+                            vad_filter=True,
+                            word_timestamps=True
+                        )
+                        with SubtitlesWriter(lang_srt_path) as writer:
+                            for segment in lang_segments:
+                                writer.add_segment(segment)
+            
+            # Экспорт в JSON при необходимости
+            if export_json:
+                json_path = os.path.join(output_dir, f"{base_name}_subs.json")
+                self.export_to_json(segments, json_path)
+            
+            logger.info("\nГенерация субтитров завершена успешно!")
+            logger.info("Созданные файлы:")
+            logger.info(f"- {main_lang}: {main_srt_path}")
+            if languages:
+                for lang in languages:
+                    if lang == main_lang:
+                        continue
+                    lang_path = os.path.join(output_dir, f"{base_name}_subs_{lang}.srt")
+                    logger.info(f"- {lang}: {lang_path}")
+            
+            logger.info(f"\nОбщее время выполнения: {time.time() - start_time:.2f} сек")
+        except Exception as e:
+            logger.error(f"Ошибка при генерации субтитров: {e}")
+            raise
+        finally:
+            # Очистка временных файлов
+            self.cleanup()
 
     def cleanup(self):
         """Очищает временные файлы и директории."""
